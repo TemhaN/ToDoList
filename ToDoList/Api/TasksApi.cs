@@ -59,6 +59,13 @@ namespace ToDoList.Api
                 dbContext.Tasks.Add(task);
                 await dbContext.SaveChangesAsync();
 
+                await dbContext.Entry(task)
+                    .Collection(t => t.TaskCategories)
+                    .Query()
+                    .Include(tc => tc.GlobalCategory)
+                    .Include(tc => tc.UserCategory)
+                    .LoadAsync();
+
                 var result = new TaskDto
                 {
                     Id = task.Id,

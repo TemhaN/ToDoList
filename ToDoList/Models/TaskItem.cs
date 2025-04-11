@@ -1,7 +1,10 @@
-﻿namespace ToDoList.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ToDoList.Models
 {
     public class TaskItem
     {
+        [Key]
         public int Id { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }

@@ -18,6 +18,12 @@ namespace ToDoList.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<TaskItem>()
+                .HasKey(t => t.Id);
+            modelBuilder.Entity<TaskItem>()
+                .Property(t => t.Id)
+                .ValueGeneratedOnAdd();
+
             modelBuilder.Entity<TaskCategory>()
                 .HasKey(tc => tc.Id);
 
