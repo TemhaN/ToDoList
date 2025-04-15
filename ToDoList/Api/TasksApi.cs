@@ -32,7 +32,7 @@ namespace ToDoList.Api
                     CreatedAt = DateTime.UtcNow,
                     IsCompleted = false
                 };
-                
+
                 if (taskDto.CategoryIds != null && taskDto.CategoryIds.Any())
                 {
                     foreach (var categoryId in taskDto.CategoryIds)
@@ -163,10 +163,14 @@ namespace ToDoList.Api
             .WithName("DeleteTask")
             .WithOpenApi();
 
-            // получение списка задач 
+            // получение списка задач
             app.MapGet("/api/tasks", async (HttpContext httpContext,
                 ApplicationDbContext dbContext,
                 int? categoryId = null,
+                bool? isCompleted = null,
+                string? searchQuery = null,
+                string? sortBy = null,
+                string? sortOrder = "asc",
                 int page = 1,
                 int pageSize = 10) =>
             {
@@ -201,9 +205,37 @@ namespace ToDoList.Api
                             (tc.UserCategoryId == categoryId && tc.CategoryType == CategoryType.User)));
                 }
 
+                if (isCompleted.HasValue)
+                {
+                    query = query.Where(t => t.IsCompleted == isCompleted.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    query = query.Where(t =>
+                        t.Title.ToLower().Contains(searchQuery.ToLower()) ||
+                        (t.Description != null && t.Description.ToLower().Contains(searchQuery.ToLower())));
+                }
+
+                query = sortBy?.ToLower() switch
+                {
+                    "title" => sortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(t => t.Title)
+                        : query.OrderBy(t => t.Title),
+                    "duedate" => sortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(t => t.DueDate)
+                        : query.OrderBy(t => t.DueDate),
+                    "createdat" => sortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(t => t.CreatedAt)
+                        : query.OrderBy(t => t.CreatedAt),
+                    "iscompleted" => sortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(t => t.IsCompleted)
+                        : query.OrderBy(t => t.IsCompleted),
+                    _ => query.OrderBy(t => t.CreatedAt)
+                };
+
                 var totalCount = await query.CountAsync();
                 var tasks = await query
-                    .OrderBy(t => t.CreatedAt)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
                     .Select(t => new TaskDto
