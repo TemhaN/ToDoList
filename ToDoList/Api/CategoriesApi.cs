@@ -11,7 +11,7 @@ namespace ToDoList.Api
     {
         public static void MapCategoriesApi(this WebApplication app)
         {
-            // получаеь все глобальные категории
+            // получает все глобальные категории
             app.MapGet("/api/categories/global", async (ApplicationDbContext dbContext) =>
             {
                 var categories = await dbContext.GlobalCategories

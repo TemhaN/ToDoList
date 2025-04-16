@@ -74,15 +74,63 @@ namespace ToDoList.Api
                     IsCompleted = task.IsCompleted,
                     DueDate = task.DueDate,
                     CreatedAt = task.CreatedAt,
-                    CategoryName = task.TaskCategories
-                        .Select(tc => tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name)
-                        .FirstOrDefault()
+                    Categories = task.TaskCategories
+                        .Select(tc => new CategoryDto
+                        {
+                            Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
+                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                        })
+                        .Where(c => c.Id != 0 && c.Name != null)
+                        .ToList()
                 };
 
                 return Results.Created($"/api/tasks/{task.Id}", result);
             })
             .RequireAuthorization()
             .WithName("CreateTask")
+            .WithOpenApi();
+
+            // получение задачи по ID
+            app.MapGet("/api/tasks/{id}", async (HttpContext httpContext,
+                ApplicationDbContext dbContext,
+                int id) =>
+            {
+                var userId = int.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
+                var task = await dbContext.Tasks
+                    .Include(t => t.TaskCategories)
+                    .ThenInclude(tc => tc.GlobalCategory)
+                    .Include(t => t.TaskCategories)
+                    .ThenInclude(tc => tc.UserCategory)
+                    .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+                if (task == null)
+                {
+                    return Results.NotFound("Задача не найдена");
+                }
+
+                var result = new TaskDto
+                {
+                    Id = task.Id,
+                    Title = task.Title,
+                    Description = task.Description,
+                    IsCompleted = task.IsCompleted,
+                    DueDate = task.DueDate,
+                    CreatedAt = task.CreatedAt,
+                    Categories = task.TaskCategories
+                        .Select(tc => new CategoryDto
+                        {
+                            Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
+                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                        })
+                        .Where(c => c.Id != 0 && c.Name != null)
+                        .ToList()
+                };
+
+                return Results.Ok(result);
+            })
+            .RequireAuthorization()
+            .WithName("GetTaskById")
             .WithOpenApi();
 
             // обновление задачи
@@ -139,6 +187,28 @@ namespace ToDoList.Api
             })
             .RequireAuthorization()
             .WithName("UpdateTask")
+            .WithOpenApi();
+
+            // отмечает задачу выполненной
+            app.MapPatch("/api/tasks/{id}/complete", async (HttpContext httpContext,
+                ApplicationDbContext dbContext,
+                int id) =>
+            {
+                var userId = int.Parse(httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+                var task = await dbContext.Tasks
+                    .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+                if (task == null)
+                {
+                    return Results.NotFound("Задача не найдена");
+                }
+
+                task.IsCompleted = true;
+                await dbContext.SaveChangesAsync();
+                return Results.Ok("Задача отмечена как выполненная");
+            })
+            .RequireAuthorization()
+            .WithName("CompleteTask")
             .WithOpenApi();
 
             // удаление задачи
@@ -246,13 +316,14 @@ namespace ToDoList.Api
                         IsCompleted = t.IsCompleted,
                         DueDate = t.DueDate,
                         CreatedAt = t.CreatedAt,
-                        CategoryName = t.TaskCategories
-                            .Where(tc => tc.GlobalCategoryId != null || tc.UserCategoryId != null)
-                            .Select(tc =>
-                                tc.GlobalCategoryId != null
-                                    ? tc.GlobalCategory.Name
-                                    : tc.UserCategory.Name)
-                            .FirstOrDefault()
+                        Categories = t.TaskCategories
+                            .Select(tc => new CategoryDto
+                            {
+                                Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
+                                Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                            })
+                            .Where(c => c.Id != 0 && c.Name != null)
+                            .ToList()
                     })
                     .ToListAsync();
 

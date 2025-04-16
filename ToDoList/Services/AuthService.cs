@@ -7,8 +7,6 @@ using ToDoList.Data;
 using ToDoList.Models;
 using ToDoList.DTO;
 using BCrypt.Net;
-using ToDoList.Data;
-using ToDoList.Models;
 
 namespace ToDoList.Services
 {
@@ -23,12 +21,11 @@ namespace ToDoList.Services
             _configuration = configuration;
         }
 
-        /// регистрация нового пользователя
+        // регистрация нового пользователя
         public async Task<string> RegisterAsync(RegisterDto registerDto)
         {
-            
             if (await _context.Users.AnyAsync(u => u.Email == registerDto.Email))
-                throw new Exception("Этот пользователь уже зарегестрирован");
+                throw new Exception("Этот пользователь уже зарегистрирован");
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
 
@@ -46,19 +43,40 @@ namespace ToDoList.Services
             return GenerateJwtToken(user);
         }
 
-        /// авторизация пользователя
+        // авторизация пользователя
         public async Task<string> LoginAsync(LoginDto loginDto)
         {
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
-                throw new Exception("Пароль и почта неверны");
+                throw new Exception("Пароль или почта неверны");
 
             return GenerateJwtToken(user);
         }
 
-        /// генерация JWT токена
+        // получение пользователя по ID
+        public async Task<UserDto> GetUserByIdAsync(int userId)
+        {
+            var user = await _context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    Username = u.Username
+                })
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                throw new Exception("Пользователь не найден");
+            }
+
+            return user;
+        }
+
+        // генерация JWT-токена
         private string GenerateJwtToken(User user)
         {
             var jwtSettings = _configuration.GetSection("Jwt");

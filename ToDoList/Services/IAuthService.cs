@@ -6,5 +6,6 @@ namespace ToDoList.Services
     {
         Task<string> RegisterAsync(RegisterDto registerDto);
         Task<string> LoginAsync(LoginDto loginDto);
+        Task<UserDto> GetUserByIdAsync(int userId);
     }
 }

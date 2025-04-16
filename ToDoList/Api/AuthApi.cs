@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
+using System.Security.Claims;
 using ToDoList.DTO;
 using ToDoList.Services;
 
@@ -44,6 +45,38 @@ namespace ToDoList.Api
                 }
             })
             .WithName("Login")
+            .WithOpenApi();
+
+            // получение аккаунта пользователя
+            app.MapGet("/api/auth/me", async (HttpContext httpContext, IAuthService authService) =>
+            {
+                var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                    return Results.Unauthorized();
+
+                if (!int.TryParse(userIdClaim.Value, out var userId))
+                    return Results.BadRequest(new { Message = "Неверный идентификатор пользователя" });
+
+                try
+                {
+                    var user = await authService.GetUserByIdAsync(userId);
+                    if (user == null)
+                        return Results.NotFound(new { Message = "Пользователь не найден" });
+
+                    return Results.Ok(new UserDto
+                    {
+                        Id = user.Id,
+                        Email = user.Email,
+                        Username = user.Username
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return Results.BadRequest(new { Message = ex.Message });
+                }
+            })
+            .WithName("GetUser")
+            .RequireAuthorization()
             .WithOpenApi();
         }
     }
