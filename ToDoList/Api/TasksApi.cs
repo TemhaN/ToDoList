@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Security.Claims;
 using ToDoList.Data;
 using ToDoList.DTO;
@@ -23,6 +24,11 @@ namespace ToDoList.Api
                     return Results.BadRequest("Название задачи обязательно");
                 }
 
+                if (string.IsNullOrWhiteSpace(taskDto.Description))
+                {
+                    return Results.BadRequest("Описание задачи обязательно");
+                }
+
                 var task = new TaskItem
                 {
                     Title = taskDto.Title,
@@ -33,25 +39,30 @@ namespace ToDoList.Api
                     IsCompleted = false
                 };
 
-                if (taskDto.CategoryIds != null && taskDto.CategoryIds.Any())
+                if (taskDto.Categories != null && taskDto.Categories.Any())
                 {
-                    foreach (var categoryId in taskDto.CategoryIds)
+                    foreach (var category in taskDto.Categories)
                     {
-                        var categoryType = await dbContext.GlobalCategories.AnyAsync(gc => gc.Id == categoryId)
-                            ? CategoryType.Global
-                            : CategoryType.User;
-
-                        if (categoryType == CategoryType.User &&
-                            !await dbContext.UserCategories.AnyAsync(uc => uc.Id == categoryId && uc.UserId == userId))
+                        bool isValid;
+                        if (category.IsGlobal)
                         {
-                            return Results.BadRequest($"Категория с ID {categoryId} не найдена");
+                            isValid = await dbContext.GlobalCategories.AnyAsync(gc => gc.Id == category.Id);
+                        }
+                        else
+                        {
+                            isValid = await dbContext.UserCategories.AnyAsync(uc => uc.Id == category.Id && uc.UserId == userId);
+                        }
+
+                        if (!isValid)
+                        {
+                            return Results.BadRequest($"Категория с ID {category.Id} не найдена");
                         }
 
                         task.TaskCategories.Add(new TaskCategory
                         {
-                            CategoryType = categoryType,
-                            GlobalCategoryId = categoryType == CategoryType.Global ? categoryId : null,
-                            UserCategoryId = categoryType == CategoryType.User ? categoryId : null
+                            CategoryType = category.IsGlobal ? CategoryType.Global : CategoryType.User,
+                            GlobalCategoryId = category.IsGlobal ? category.Id : null,
+                            UserCategoryId = category.IsGlobal ? null : category.Id
                         });
                     }
                 }
@@ -78,7 +89,8 @@ namespace ToDoList.Api
                         .Select(tc => new CategoryDto
                         {
                             Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
-                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name,
+                            IsGlobal = tc.CategoryType == CategoryType.Global
                         })
                         .Where(c => c.Id != 0 && c.Name != null)
                         .ToList()
@@ -121,7 +133,8 @@ namespace ToDoList.Api
                         .Select(tc => new CategoryDto
                         {
                             Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
-                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                            Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name,
+                            IsGlobal = tc.CategoryType == CategoryType.Global
                         })
                         .Where(c => c.Id != 0 && c.Name != null)
                         .ToList()
@@ -154,30 +167,40 @@ namespace ToDoList.Api
                     task.Title = taskDto.Title;
                 }
 
+                if (taskDto.Description == null)
+                {
+                    return Results.BadRequest("Описание задачи обязательно");
+                }
                 task.Description = taskDto.Description;
+
                 task.IsCompleted = taskDto.IsCompleted;
                 task.DueDate = taskDto.DueDate;
 
-                if (taskDto.CategoryIds != null)
+                if (taskDto.Categories != null)
                 {
                     task.TaskCategories.Clear();
-                    foreach (var categoryId in taskDto.CategoryIds)
+                    foreach (var category in taskDto.Categories)
                     {
-                        var categoryType = await dbContext.GlobalCategories.AnyAsync(gc => gc.Id == categoryId)
-                            ? CategoryType.Global
-                            : CategoryType.User;
-
-                        if (categoryType == CategoryType.User &&
-                            !await dbContext.UserCategories.AnyAsync(uc => uc.Id == categoryId && uc.UserId == userId))
+                        bool isValid;
+                        if (category.IsGlobal)
                         {
-                            return Results.BadRequest($"Категория с ID {categoryId} не найдена");
+                            isValid = await dbContext.GlobalCategories.AnyAsync(gc => gc.Id == category.Id);
+                        }
+                        else
+                        {
+                            isValid = await dbContext.UserCategories.AnyAsync(uc => uc.Id == category.Id && uc.UserId == userId);
+                        }
+
+                        if (!isValid)
+                        {
+                            return Results.BadRequest($"Категория с ID {category.Id} не найдена");
                         }
 
                         task.TaskCategories.Add(new TaskCategory
                         {
-                            CategoryType = categoryType,
-                            GlobalCategoryId = categoryType == CategoryType.Global ? categoryId : null,
-                            UserCategoryId = categoryType == CategoryType.User ? categoryId : null
+                            CategoryType = category.IsGlobal ? CategoryType.Global : CategoryType.User,
+                            GlobalCategoryId = category.IsGlobal ? category.Id : null,
+                            UserCategoryId = category.IsGlobal ? null : category.Id
                         });
                     }
                 }
@@ -320,7 +343,8 @@ namespace ToDoList.Api
                             .Select(tc => new CategoryDto
                             {
                                 Id = tc.GlobalCategoryId ?? tc.UserCategoryId ?? 0,
-                                Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name
+                                Name = tc.GlobalCategoryId != null ? tc.GlobalCategory.Name : tc.UserCategory.Name,
+                                IsGlobal = tc.CategoryType == CategoryType.Global
                             })
                             .Where(c => c.Id != 0 && c.Name != null)
                             .ToList()

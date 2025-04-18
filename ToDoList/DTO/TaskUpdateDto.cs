@@ -7,5 +7,6 @@
         public bool IsCompleted { get; set; }
         public DateTime? DueDate { get; set; }
         public List<int>? CategoryIds { get; set; }
+        public List<TaskCategoryInputDto>? Categories { get; set; }
     }
 }
