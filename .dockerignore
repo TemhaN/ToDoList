@@ -1,0 +1,9 @@
+bin/
+obj/
+*.log
+*.pdb
+*.cache
+node_modules/
+.git/
+.vs/
+*.sln
